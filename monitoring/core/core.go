@@ -122,12 +122,21 @@ func SetupMonitoring(ctx context.Context, options MonitoringOptions) (Monitoring
 	}, nil
 }
 
+func (m *monitoring) getCommonLabels() prometheus.Labels {
+	return prometheus.Labels{
+		"region":      m.region,
+		"environment": m.env,
+		"application": m.application,
+	}
+}
+
 func (m *monitoring) RegisterHistogram(name string, help string, unit string, buckets []float64) MetricId {
 	hist := prometheus.NewHistogram(prometheus.HistogramOpts{
-		Name:    name,
-		Help:    help,
-		Unit:    unit,
-		Buckets: buckets,
+		Name:        name,
+		Help:        help,
+		Unit:        unit,
+		Buckets:     buckets,
+		ConstLabels: m.getCommonLabels(),
 	})
 	m.registry.histograms[name] = hist
 	return MetricId{name: name, mType: MetricTypeHistogram}
@@ -135,9 +144,10 @@ func (m *monitoring) RegisterHistogram(name string, help string, unit string, bu
 
 func (m *monitoring) RegisterGauge(name string, help string, unit string) MetricId {
 	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
-		Name: name,
-		Help: help,
-		Unit: unit,
+		Name:        name,
+		Help:        help,
+		Unit:        unit,
+		ConstLabels: m.getCommonLabels(),
 	})
 	m.registry.gauges[name] = gauge
 	return MetricId{name: name, mType: MetricTypeGauge}
@@ -145,9 +155,10 @@ func (m *monitoring) RegisterGauge(name string, help string, unit string) Metric
 
 func (m *monitoring) RegisterCounter(name string, help string, unit string) MetricId {
 	counter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: name,
-		Help: help,
-		Unit: unit,
+		Name:        name,
+		Help:        help,
+		Unit:        unit,
+		ConstLabels: m.getCommonLabels(),
 	})
 	m.registry.counters[name] = counter
 	return MetricId{name: name, mType: MetricTypeCounter}
@@ -155,12 +166,13 @@ func (m *monitoring) RegisterCounter(name string, help string, unit string) Metr
 
 func (m *monitoring) RegisterSummary(name string, help string, unit string, objectives map[float64]float64, maxAge time.Duration, ageBuckets uint32) MetricId {
 	summary := prometheus.NewSummary(prometheus.SummaryOpts{
-		Name:       name,
-		Help:       help,
-		Unit:       unit,
-		Objectives: objectives,
-		MaxAge:     maxAge,
-		AgeBuckets: ageBuckets,
+		Name:        name,
+		Help:        help,
+		Unit:        unit,
+		Objectives:  objectives,
+		MaxAge:      maxAge,
+		AgeBuckets:  ageBuckets,
+		ConstLabels: m.getCommonLabels(),
 	})
 	m.registry.summaries[name] = summary
 	return MetricId{name: name, mType: MetricTypeSummary}

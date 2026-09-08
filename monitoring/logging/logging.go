@@ -18,12 +18,31 @@ func NewTransport(logger *slog.Logger) *LoggingTransport {
 }
 
 func (lt LoggingTransport) Send(ctx context.Context, jobName string, data []prometheus.Collector) error {
-	metric := make(chan prometheus.Metric)
-	for _, c := range data {
-		c.Collect(metric)
+	metrics := make(chan prometheus.Metric)
+	go func() {
+		defer close(metrics)
+		for _, collector := range data {
+			collector.Collect(metrics)
+		}
+	}()
+	collected := make([]string, 0)
+	for {
+		select {
+		case metric, ok := <-metrics:
+			if !ok {
+				lt.logger.InfoContext(
+					ctx,
+					"Sending data to logging transport",
+					"job", jobName,
+					"data", collected,
+				)
+				return nil
+			}
+			collected = append(collected, metric.Desc().String())
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
-	lt.logger.Info("Sending data to logging transport", "job", jobName, "data", metric)
-	return nil
 }
 
 func (lt LoggingTransport) Validate() error {

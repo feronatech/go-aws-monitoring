@@ -37,5 +37,5 @@ func (p PushgatewayTransport) Send(ctx context.Context, jobName string, data []p
 	for _, c := range data {
 		pusher.Collector(c)
 	}
-	return pusher.Push()
+	return pusher.PushContext(ctx)
 }
