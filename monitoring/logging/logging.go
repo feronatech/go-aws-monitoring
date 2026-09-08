@@ -1,3 +1,4 @@
+// logging package provides a simple transport implementation for sending Prometheus metrics to a logging system.
 package logging
 
 import (
@@ -7,10 +8,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// LoggingTransport is a transport implementation that logs Prometheus metrics to a specified logger.
 type LoggingTransport struct {
 	logger *slog.Logger
 }
 
+// NewTransport creates a new instance of LoggingTransport with the provided logger.
 func NewTransport(logger *slog.Logger) *LoggingTransport {
 	return &LoggingTransport{
 		logger: logger,

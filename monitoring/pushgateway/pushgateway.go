@@ -1,3 +1,4 @@
+// pushgateway package provides a transport implementation for sending Prometheus metrics to a Pushgateway server.
 package pushgateway
 
 import (
@@ -8,12 +9,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/push"
 )
 
+// PushgatewayTransport is a transport implementation that sends Prometheus metrics to a Pushgateway server.
+// It supports basic authentication and requires a valid Pushgateway URL to function correctly.
 type PushgatewayTransport struct {
 	url      string
 	username string
 	password string
 }
 
+// NewTransport creates a new instance of PushgatewayTransport with the provided URL, username, and password.
 func NewTransport(url string, username string, password string) *PushgatewayTransport {
 	return &PushgatewayTransport{
 		url:      url,
