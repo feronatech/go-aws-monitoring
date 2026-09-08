@@ -47,9 +47,18 @@ jobs:
             ```
             **Usage:**
             ```go
-            import "github.com/feronatech/go-aws-monitoring/monitoring"
+            import (
+                "context"
+                "github.com/feronatech/go-aws-monitoring/monitoring"
+                "github.com/feronatech/go-aws-monitoring/monitoring/pushgateway"
+            )
 
-            monitoring := SetupMonitoring()
+            monitor, err := monitoring.SetupMonitoring(context.Background(), monitoring.MonitoringOptions{
+                Region:      "us-east-1",
+                Env:         "production",
+                Application: "my-app",
+                Transport:   pushgateway.NewTransport("http://pushgateway.example.com:9091", "", ""),
+            })
             ```
 
           generate_release_notes: true
