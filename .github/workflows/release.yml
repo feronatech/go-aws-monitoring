@@ -4,62 +4,45 @@ on:
     tags:
       - 'v*.*.*'
 
-permissions:
-  contents: write
-  id-token: write
-
 concurrency:
   group: release
   cancel-in-progress: true
 
 jobs:
-  release:
+  version:
     runs-on: ubuntu-slim
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Golang
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: 'go.mod'
-
-      - name: Get version from tag
+      - name: Get Version
         id: get_version
-        run: |
-          TAG="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG#v}"
-          if [[ "$VERSION" =~ ^([0-9]+\.[0-9]+\.[0-9]+) ]]; then
-            VERSION="${BASH_REMATCH[1]}"
-          else
-            VERSION="${VERSION%%-*}"  # Remove everything after '-'
-            VERSION="${VERSION%%.*}"  # Remove everything after first '.'
-          fi
-          echo "Extracted version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        uses: feronatech/shared-workflows/.github/actions/get-version-from-tag@main
+  release:
+    uses: feronatech/shared-workflows/.github/workflows/go-lib-release.yml@main
+    needs: version
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    with:
+      wait-for-checks: "cve.yml,lint.yml,test.yml"
+      release-body: |
+        **Installation:**
+        ```bash
+        go get github.com/feronatech/go-aws-monitoring@v${{ needs.version.outputs.version }}
+        ```
+        **Usage:**
+        ```go
+        import (
+            "context"
+            "github.com/feronatech/go-aws-monitoring/monitoring"
+            "github.com/feronatech/go-aws-monitoring/monitoring/pushgateway"
+        )
 
-      - name: Release package
-        uses: softprops/action-gh-release@v3
-        with:
-          body: |
-            **Installation:**
-            ```bash
-            go get github.com/feronatech/go-aws-monitoring@v${{ steps.get_version.outputs.version }}
-            ```
-            **Usage:**
-            ```go
-            import (
-                "context"
-                "github.com/feronatech/go-aws-monitoring/monitoring"
-                "github.com/feronatech/go-aws-monitoring/monitoring/pushgateway"
-            )
-
-            monitor, err := monitoring.SetupMonitoring(context.Background(), monitoring.MonitoringOptions{
-                Region:      "us-east-1",
-                Env:         "production",
-                Application: "my-app",
-                Transport:   pushgateway.NewTransport("http://pushgateway.example.com:9091", "", ""),
-            })
-            ```
-
-          generate_release_notes: true
-          make_latest: true
+        monitor, err := monitoring.SetupMonitoring(context.Background(), monitoring.MonitoringOptions{
+            Region:      "us-east-1",
+            Env:         "production",
+            Application: "my-app",
+            Transport:   pushgateway.NewTransport("http://pushgateway.example.com:9091", "", ""),
+        })
+        ```
