@@ -88,7 +88,7 @@ func Test_RegisterHistogram(t *testing.T) {
 	unit := "seconds"
 	buckets := []float64{0.1, 0.5, 1.0, 5.0, 10.0}
 	id := m.RegisterHistogram(name, help, unit, buckets)
-	if id.name != name {
+	if !strings.HasPrefix(id.name, name) {
 		t.Errorf("Expected histogram name to be %s, got %s", name, id.name)
 	}
 	if id.mType != MetricTypeHistogram {
@@ -118,7 +118,7 @@ func Test_RegisterCounter(t *testing.T) {
 	help := "This is a test counter"
 	unit := "count"
 	id := m.RegisterCounter(name, help, unit)
-	if id.name != name {
+	if !strings.HasPrefix(id.name, name) {
 		t.Errorf("Expected counter name to be %s, got %s", name, id.name)
 	}
 	if id.mType != MetricTypeCounter {
@@ -148,7 +148,7 @@ func Test_RegisterGauge(t *testing.T) {
 	help := "This is a test gauge"
 	unit := "count"
 	id := m.RegisterGauge(name, help, unit)
-	if id.name != name {
+	if !strings.HasPrefix(id.name, name) {
 		t.Errorf("Expected gauge name to be %s, got %s", name, id.name)
 	}
 	if id.mType != MetricTypeGauge {
@@ -179,7 +179,7 @@ func Test_RegisterSummary(t *testing.T) {
 	unit := "seconds"
 	objectives := map[float64]float64{0.5: 0.5, 0.9: 0.9, 0.99: 0.99}
 	id := m.RegisterSummary(name, help, unit, objectives, 10*time.Minute, 5)
-	if id.name != name {
+	if !strings.HasPrefix(id.name, name) {
 		t.Errorf("Expected summary name to be %s, got %s", name, id.name)
 	}
 	if id.mType != MetricTypeSummary {
@@ -192,12 +192,7 @@ func Test_RegisterSummary(t *testing.T) {
 	}
 }
 
-const (
-	TestMetricHistogramName = "test_histogram"
-	TestMetricGaugeName     = "test_gauge"
-	TestMetricCounterName   = "test_counter"
-	TestMetricSummaryName   = "test_summary"
-)
+var TestMetricHistogramName, TestMetricGaugeName, TestMetricCounterName, TestMetricSummaryName string
 
 func setupTestMonitoring(t *testing.T) (Monitoring, *TestTransport) {
 	t.Helper()
@@ -209,10 +204,14 @@ func setupTestMonitoring(t *testing.T) (Monitoring, *TestTransport) {
 		Application: "myapp",
 		Transport:   transport,
 	})
-	m.RegisterHistogram(TestMetricHistogramName, "Histogram for testing", "seconds", []float64{0, 0.333, 0.666, 1.0})
-	m.RegisterGauge(TestMetricGaugeName, "Testing gauge", "kpi")
-	m.RegisterCounter(TestMetricCounterName, "Counter for testing", "requests")
-	m.RegisterSummary(TestMetricSummaryName, "Testing summary", "seconds", map[float64]float64{0.5: 0.5, 0.9: 0.9, 0.99: 0.99}, 10*time.Minute, 5)
+	id := m.RegisterHistogram("test_histogram", "Histogram for testing", "seconds", []float64{0, 0.333, 0.666, 1.0})
+	TestMetricHistogramName = id.name // Update the global variable with the unique name
+	id = m.RegisterGauge("test_gauge", "Testing gauge", "kpi")
+	TestMetricGaugeName = id.name // Update the global variable with the unique name
+	id = m.RegisterCounter("test_counter", "Counter for testing", "requests")
+	TestMetricCounterName = id.name // Update the global variable with the unique name
+	id = m.RegisterSummary("test_summary", "Testing summary", "seconds", map[float64]float64{0.5: 0.5, 0.9: 0.9, 0.99: 0.99}, 10*time.Minute, 5)
+	TestMetricSummaryName = id.name // Update the global variable with the unique name
 	return m, &transport
 }
 
@@ -320,6 +319,7 @@ func Test_Sub(t *testing.T) {
 }
 
 func Test_Send(t *testing.T) {
+	m, transport := setupTestMonitoring(t)
 	testCases := []struct {
 		mName         string
 		mType         metricType
@@ -338,7 +338,6 @@ func Test_Send(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("%s_%s = %t", tc.mName, tc.mType, tc.expectedError), func(t *testing.T) {
-			m, transport := setupTestMonitoring(t)
 			id := MetricId{name: tc.mName, mType: tc.mType}
 			if tc.mName == TestMetricHistogramName || tc.mName == TestMetricSummaryName {
 				_ = m.Observe(id, tc.value)
@@ -426,5 +425,20 @@ func Test_AddAdditionalLabels(t *testing.T) {
 		if !strings.Contains(gaugeDesc, key) {
 			t.Errorf("Expected gauge description to contain label %s, but it was missing", key)
 		}
+	}
+}
+
+func Test_DuplicateMetricRegistration(t *testing.T) {
+	name := "duplicate_metric"
+	help := "This is a test metric"
+	unit := "count"
+
+	m, _ := setupTestMonitoring(t)
+
+	id1 := m.RegisterGauge(name, help, unit)
+	id2 := m.RegisterGauge(name, help, unit)
+
+	if id1 == id2 {
+		t.Errorf("Expected different IDs for duplicate metric registration")
 	}
 }

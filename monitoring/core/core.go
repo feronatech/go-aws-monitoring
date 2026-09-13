@@ -2,6 +2,8 @@ package core
 
 import (
 	"context"
+	"fmt"
+	"math/rand"
 	"time"
 
 	"github.com/feronatech/go-aws-monitoring/monitoring/core/errors"
@@ -10,6 +12,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+var random = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 type metricType string
 
@@ -151,6 +155,12 @@ func (m *monitoring) mergeWithCommonLabels(labels []MetricLabel) prometheus.Labe
 	return commonLabels
 }
 
+func (m *monitoring) generateUniqueCacheName(name string) string {
+	now := time.Now()
+	randInt := random.Intn(1000)
+	return fmt.Sprintf("%s_%s_%03d", name, now.Format("20060102150405"), randInt)
+}
+
 func (m *monitoring) RegisterHistogram(name string, help string, unit string, buckets []float64, labels ...MetricLabel) MetricId {
 	hist := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:        name,
@@ -159,8 +169,9 @@ func (m *monitoring) RegisterHistogram(name string, help string, unit string, bu
 		Buckets:     buckets,
 		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
-	m.registry.histograms[name] = hist
-	return MetricId{name: name, mType: MetricTypeHistogram}
+	cacheName := m.generateUniqueCacheName(name)
+	m.registry.histograms[cacheName] = hist
+	return MetricId{name: cacheName, mType: MetricTypeHistogram}
 }
 
 func (m *monitoring) RegisterGauge(name string, help string, unit string, labels ...MetricLabel) MetricId {
@@ -170,8 +181,9 @@ func (m *monitoring) RegisterGauge(name string, help string, unit string, labels
 		Unit:        unit,
 		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
-	m.registry.gauges[name] = gauge
-	return MetricId{name: name, mType: MetricTypeGauge}
+	cacheName := m.generateUniqueCacheName(name)
+	m.registry.gauges[cacheName] = gauge
+	return MetricId{name: cacheName, mType: MetricTypeGauge}
 }
 
 func (m *monitoring) RegisterCounter(name string, help string, unit string, labels ...MetricLabel) MetricId {
@@ -181,8 +193,9 @@ func (m *monitoring) RegisterCounter(name string, help string, unit string, labe
 		Unit:        unit,
 		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
-	m.registry.counters[name] = counter
-	return MetricId{name: name, mType: MetricTypeCounter}
+	cacheName := m.generateUniqueCacheName(name)
+	m.registry.counters[cacheName] = counter
+	return MetricId{name: cacheName, mType: MetricTypeCounter}
 }
 
 func (m *monitoring) RegisterSummary(name string, help string, unit string, objectives map[float64]float64, maxAge time.Duration, ageBuckets uint32, labels ...MetricLabel) MetricId {
@@ -195,8 +208,9 @@ func (m *monitoring) RegisterSummary(name string, help string, unit string, obje
 		AgeBuckets:  ageBuckets,
 		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
-	m.registry.summaries[name] = summary
-	return MetricId{name: name, mType: MetricTypeSummary}
+	cacheName := m.generateUniqueCacheName(name)
+	m.registry.summaries[cacheName] = summary
+	return MetricId{name: cacheName, mType: MetricTypeSummary}
 }
 
 func (m *monitoring) Observe(id MetricId, value float64) error {
