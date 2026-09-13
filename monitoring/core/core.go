@@ -24,6 +24,11 @@ const (
 	MetricTypeSummary   metricType = "summary"
 )
 
+type MetricLabel struct {
+	Key   string
+	Value string
+}
+
 type MetricId struct {
 	name  string
 	mType metricType
@@ -37,10 +42,10 @@ type MonitoringOptions struct {
 }
 
 type Monitoring interface {
-	RegisterHistogram(name string, help string, unit string, buckets []float64) MetricId
-	RegisterGauge(name string, help string, unit string) MetricId
-	RegisterCounter(name string, help string, unit string) MetricId
-	RegisterSummary(name string, help string, unit string, objectives map[float64]float64, maxAge time.Duration, ageBuckets uint32) MetricId
+	RegisterHistogram(name string, help string, unit string, buckets []float64, labels ...MetricLabel) MetricId
+	RegisterGauge(name string, help string, unit string, labels ...MetricLabel) MetricId
+	RegisterCounter(name string, help string, unit string, labels ...MetricLabel) MetricId
+	RegisterSummary(name string, help string, unit string, objectives map[float64]float64, maxAge time.Duration, ageBuckets uint32, labels ...MetricLabel) MetricId
 	Observe(id MetricId, value float64) error
 	Add(id MetricId, value float64) error
 	Set(id MetricId, value float64) error
@@ -130,41 +135,57 @@ func (m *monitoring) getCommonLabels() prometheus.Labels {
 	}
 }
 
-func (m *monitoring) RegisterHistogram(name string, help string, unit string, buckets []float64) MetricId {
+func (m *monitoring) convertLabelsToLabels(labels []MetricLabel) prometheus.Labels {
+	prometheusLabels := prometheus.Labels{}
+	for _, label := range labels {
+		prometheusLabels[label.Key] = label.Value
+	}
+	return prometheusLabels
+}
+
+func (m *monitoring) mergeWithCommonLabels(labels []MetricLabel) prometheus.Labels {
+	commonLabels := m.getCommonLabels()
+	for key, value := range m.convertLabelsToLabels(labels) {
+		commonLabels[key] = value
+	}
+	return commonLabels
+}
+
+func (m *monitoring) RegisterHistogram(name string, help string, unit string, buckets []float64, labels ...MetricLabel) MetricId {
 	hist := prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:        name,
 		Help:        help,
 		Unit:        unit,
 		Buckets:     buckets,
-		ConstLabels: m.getCommonLabels(),
+		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
 	m.registry.histograms[name] = hist
 	return MetricId{name: name, mType: MetricTypeHistogram}
 }
 
-func (m *monitoring) RegisterGauge(name string, help string, unit string) MetricId {
+func (m *monitoring) RegisterGauge(name string, help string, unit string, labels ...MetricLabel) MetricId {
 	gauge := prometheus.NewGauge(prometheus.GaugeOpts{
 		Name:        name,
 		Help:        help,
 		Unit:        unit,
-		ConstLabels: m.getCommonLabels(),
+		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
 	m.registry.gauges[name] = gauge
 	return MetricId{name: name, mType: MetricTypeGauge}
 }
 
-func (m *monitoring) RegisterCounter(name string, help string, unit string) MetricId {
+func (m *monitoring) RegisterCounter(name string, help string, unit string, labels ...MetricLabel) MetricId {
 	counter := prometheus.NewCounter(prometheus.CounterOpts{
 		Name:        name,
 		Help:        help,
 		Unit:        unit,
-		ConstLabels: m.getCommonLabels(),
+		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
 	m.registry.counters[name] = counter
 	return MetricId{name: name, mType: MetricTypeCounter}
 }
 
-func (m *monitoring) RegisterSummary(name string, help string, unit string, objectives map[float64]float64, maxAge time.Duration, ageBuckets uint32) MetricId {
+func (m *monitoring) RegisterSummary(name string, help string, unit string, objectives map[float64]float64, maxAge time.Duration, ageBuckets uint32, labels ...MetricLabel) MetricId {
 	summary := prometheus.NewSummary(prometheus.SummaryOpts{
 		Name:        name,
 		Help:        help,
@@ -172,7 +193,7 @@ func (m *monitoring) RegisterSummary(name string, help string, unit string, obje
 		Objectives:  objectives,
 		MaxAge:      maxAge,
 		AgeBuckets:  ageBuckets,
-		ConstLabels: m.getCommonLabels(),
+		ConstLabels: m.mergeWithCommonLabels(labels),
 	})
 	m.registry.summaries[name] = summary
 	return MetricId{name: name, mType: MetricTypeSummary}

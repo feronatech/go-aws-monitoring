@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -387,5 +388,43 @@ func Test_Flush(t *testing.T) {
 	}
 	if len(transport.collector.Collectors) != 4 {
 		t.Errorf("Expected 4 metrics to be sent, but transport has no collectors")
+	}
+}
+
+func Test_DefaultNoAdditionalLabels(t *testing.T) {
+	m, _ := setupTestMonitoring(t)
+
+	monitor := m.(*monitoring)
+
+	id := monitor.RegisterGauge("test_gauge", "Test gauge", "count")
+
+	gaugeDesc := monitor.registry.gauges[id.name].Desc().String()
+
+	t.Logf("Gauge description: %s", gaugeDesc)
+
+	expectedKeys := []string{"region", "environment", "application"}
+	for _, key := range expectedKeys {
+		if !strings.Contains(gaugeDesc, key) {
+			t.Errorf("Expected gauge description to contain label %s, but it was missing", key)
+		}
+	}
+}
+
+func Test_AddAdditionalLabels(t *testing.T) {
+	m, _ := setupTestMonitoring(t)
+
+	monitor := m.(*monitoring)
+
+	id := monitor.RegisterGauge("test_gauge", "Test gauge", "count", MetricLabel{Key: "custom_label", Value: "custom_value"})
+
+	gaugeDesc := monitor.registry.gauges[id.name].Desc().String()
+
+	t.Logf("Gauge description: %s", gaugeDesc)
+
+	expectedKeys := []string{"region", "environment", "application", "custom_label"}
+	for _, key := range expectedKeys {
+		if !strings.Contains(gaugeDesc, key) {
+			t.Errorf("Expected gauge description to contain label %s, but it was missing", key)
+		}
 	}
 }
