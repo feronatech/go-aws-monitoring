@@ -11,7 +11,7 @@ type MetricId = core.MetricId
 
 // MetricLabel is a type alias for core.MetricLabel, representing a key-value pair used to label Prometheus metrics.
 // It can be provided when updateing a metric to add additional context or metadata to the metric.
-type MetricLLabel = core.MetricLabel
+type MetricLabel = core.MetricLabel
 
 // Monitoring is an interface that defines methods for registering and managing Prometheus metrics, as well as sending them to a specified transport.
 type Monitoring = core.Monitoring
